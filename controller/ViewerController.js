@@ -165,7 +165,7 @@ export const getLineup = async(req,res)=>{
 export const getPlayers = async (req, res) => {
   try {
     const {id} = req.params;
-
+  
     // Step 1: Get team1_id and team2_id using match_id
     const [matchResult] = await db.execute(`
       SELECT team1_id, team2_id FROM matches WHERE id = ?
@@ -181,7 +181,6 @@ export const getPlayers = async (req, res) => {
     const [teams] = await db.execute(`
       SELECT id, name FROM team WHERE id IN (?, ?)
     `, [team1_id, team2_id]);
-
     // Step 3: Get players of both teams
     const [players] = await db.execute(`
       SELECT id, name, position, image, team_id FROM player WHERE team_id IN (?, ?)
