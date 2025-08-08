@@ -50,7 +50,6 @@ export const teamCreation = async (req, res) => {
 
 export const getTeams = async (req, res) => {
   const { id } = req.params;
-  
   const sql = "SELECT * FROM team WHERE created_by = ?";
 
   try {
@@ -124,18 +123,16 @@ export const createTournment = async (req, res) => {
   const { id } = req.params; // admin ID
   const uuid = uuidv4(); // new tournament ID
 
-  const checkIncompleteSql =
+  const checkAndGet =
     "SELECT id FROM tournament WHERE created_by = ? AND isCompleted = 0";
 
   const insertSql =
     "INSERT INTO tournament(id, name, location, created_by) VALUES (?, ?, ?, ?)";
 
-  const selectSql =
-    "SELECT id FROM tournament WHERE created_by = ?";
 
   try {
     // ✅ Step 1: Check if admin has any incomplete tournament
-    const [incomplete] = await db.execute(checkIncompleteSql, [id]);
+    const [incomplete] = await db.execute(checkAndGet, [id]);
 
     if (incomplete.length > 0) {
       return res.status(403).json({
@@ -152,7 +149,7 @@ export const createTournment = async (req, res) => {
     ]);
 
     if (insertResult.affectedRows > 0) {
-      const [response] = await db.execute(selectSql, [id]);
+      const [response] = await db.execute(checkAndGet, [id]);
       return res.status(201).json({ tournament: response[0] });
     }
 
@@ -169,7 +166,11 @@ export const createTournment = async (req, res) => {
 
 export const getTournaments = async (req, res) => {
   const { id } = req.params;
-  const sql = `SELECT * FROM tournament WHERE created_by = ?`;
+  const sql = `SELECT * 
+FROM tournament 
+WHERE created_by = ?
+ORDER BY isCompleted ASC;
+`;
   try {
     const [response] = await db.execute(sql, [id]);
       return res.status(200).json(response);
@@ -268,13 +269,16 @@ SELECT
   m.round,
   m.team1_id,
   m.team2_id,
+  m.isCompleted,
   t1.name AS team1_name,
   t2.name AS team2_name
 FROM matches m
 JOIN team t1 ON m.team1_id = t1.id
 JOIN team t2 ON m.team2_id = t2.id
-WHERE m.tournament_id = ?;
-
+WHERE m.tournament_id = ?
+ORDER BY 
+  m.isCompleted ASC, 
+  STR_TO_DATE(m.match_date, '%a %b %d %Y') ASC;
   `;
 
   try {
@@ -289,6 +293,7 @@ WHERE m.tournament_id = ?;
       match_date: row.match_date,
       match_time:row.time,
       match_round:row.round,
+      isCompleted:row.isCompleted,
       team_names:{
         team1_id:row.team1_id,
         team2_id:row.team2_id,
@@ -563,4 +568,64 @@ export const deleteTeam=async(req,res)=>{
       details: e.message,
     });
   }
+}
+
+export const finishGame = async(req,res)=>{
+  const{id} = req.params
+  const sql = `UPDATE matches set isLive=0, isCompleted=1 WHERE id = ?`
+  try{
+    const[response] = await db.execute(sql,[id])
+    if(response.affectedRows>0){
+      return res.status(200).json({message:"Match is Closed"})
+    }
+    return res.status(404).json({message:"Cant close match"})
+  }catch (e) {
+    console.error('Internal server error:', e);
+    return res.status(500).json({
+      error: 'Internal server error',
+      details: e.message,
+    });
+  }
+  
+}
+
+export const startMatch = async (req,res)=>{
+    const{id} = req.params
+    const sql = `UPDATE matches SET isLive = 1, isCompleted=0 WHERE id = ?`
+    try{
+      const[response] = await db.execute(sql,[id])
+      if(response.affectedRows>0){
+        return res.status(200).json({message:"Match is Started"})
+      }
+      return res.status(404).json({message:"Match cannot Started"})
+    }catch (e) {
+    console.error('Internal server error:', e);
+    return res.status(500).json({
+      error: 'Internal server error',
+      details: e.message,
+    });
+  }
+    
+}
+
+export const finishTournamnet = async (req,res)=>{
+    const{id} = req.params
+    const{selectedTeam} = req.body
+    
+    
+    const sql = `UPDATE tournament SET isCompleted = 1, winner=? WHERE id = ?`
+    try{
+      const[response] = await db.execute(sql,[selectedTeam,id])
+      if(response.affectedRows>0){
+        return res.status(200).json({message:"tournament is ended"})
+      }
+      return res.status(404).json({message:"Tournament cannot end"})
+    }catch (e) {
+    console.error('Internal server error:', e);
+    return res.status(500).json({
+      error: 'Internal server error',
+      details: e.message,
+    });
+  }
+    
 }

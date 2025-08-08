@@ -10,6 +10,8 @@ import {
   editMatch,
   editPlayer,
   editTeam,
+  finishGame,
+  finishTournamnet,
   getMatches,
   getMatchTeams,
   getPlayers,
@@ -17,6 +19,7 @@ import {
   getTournamentById,
   getTournaments,
   isOngoing,
+  startMatch,
   teamCreation,
   updateTournament,
 } from "../controller/adminController.js";
@@ -55,4 +58,7 @@ adminRouter.post("/addPlayer",upload.single("image"), addPlayer);
 adminRouter.put("/editMatch", editMatch);
 adminRouter.delete("/deleteMatch/:id", deleteMatch);
 adminRouter.delete("/deleteTeam/:id", deleteTeam);
+adminRouter.get("/finishGame/:id", finishGame);
+adminRouter.get("/startMatch/:id", startMatch);
+adminRouter.put("/finishTournamnet/:id", finishTournamnet);
 export default adminRouter;

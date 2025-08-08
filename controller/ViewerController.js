@@ -35,6 +35,7 @@ export const getLiveMatches = async (req, res) => {
       time: row.time,
       round: row.round,
       isLive: row.isLive,
+      liveID: row.liveID,
 
       tournament: {
         id: row.tournament_id,
@@ -205,5 +206,75 @@ export const getPlayers = async (req, res) => {
   } catch (error) {
     console.error("Error fetching team players:", error);
     res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+export const getTournaments =async(req,res)=>{
+    try{
+      const sql = `SELECT * FROM tournament WHERE winner IS NULL`
+      const [response] = await db.execute(sql)
+      if(response.length > 0){
+        return res.status(200).json(response)
+      }
+      return res.status(404).json({message:"cannot find tournaments"})
+    }catch(error){
+       console.error("Error fetching team players:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+    }
+}
+
+export const getMatches = async (req, res) => {
+  const { id } = req.params;
+
+  const sql = `
+SELECT
+  m.id AS match_id,
+  m.match_date,
+  m.time,
+  m.round,
+  m.team1_id,
+  m.team2_id,
+  t1.name AS team1_name,
+  t2.name AS team2_name,
+  t1.image AS team1_image,
+  t2.image AS team2_image
+FROM matches m
+JOIN team t1 ON m.team1_id = t1.id
+JOIN team t2 ON m.team2_id = t2.id
+WHERE 
+  m.tournament_id = ?
+ORDER BY 
+  STR_TO_DATE(m.match_date, '%a %b %d %Y') ASC`
+
+  try {
+    const [response] = await db.execute(sql, [id]);
+    console.log(response);
+    
+    if (!response.length) {
+      return res.status(404).json({ message: "No Matches Found" });
+    }
+
+    // Format matches as: { match_id, match_date, match_name: "Team A vs Team B" }
+    const matches = response.map(row => ({
+      match_id: row.match_id,
+      match_date: row.match_date,
+      match_time:row.time,
+      match_round:row.round,
+      isCompleted:row.isCompleted,
+      team_names:{
+        team1_id:row.team1_id,
+        team2_id:row.team2_id,
+        team1:{name:row.team1_name,image:row.team1_image},
+        team2:{name:row.team2_name,image:row.team2_image}
+      } 
+    }));
+
+    return res.status(200).json(matches);
+
+  } catch (e) {
+    console.error("Internal server error:", e);
+    return res
+      .status(500)
+      .json({ error: "Internal server error", details: e.message });
   }
 };
